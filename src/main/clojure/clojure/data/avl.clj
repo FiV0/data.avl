@@ -1200,6 +1200,42 @@
               init
               (avl-set-reduce (.getRight node) f init))))))))
 
+(defn larger-fn [ascending?]
+  (if ascending?
+    #(= (compare %1 %2) 1)
+    #(= (compare %2 %1) 1)))
+
+(defn smaller-equal-fn [ascending?]
+  (if ascending?
+    #(<= (compare %1 %2) 0)
+    #(<= (compare %2 %1) 0)))
+
+(defn- drop-seek [^IAVLNode node ascending? k]
+  (let [larger? (larger-fn ascending?)]
+    (loop [node node]
+      (when node
+        (if  (larger? k (.getKey node))
+          (recur (if ascending? (.getRight node) (.getLeft node)))
+          node)))))
+
+(defn- seq-seek [stack ascending? k]
+  (let [smaller-eq? (smaller-equal-fn ascending?)
+        larger? (larger-fn ascending?)]
+    (loop [stack stack]
+      (when stack
+        (let [n1 ^IAVLNode (first stack)]
+          (if (smaller-eq? k (.getKey n1))
+            stack
+            (let [n2 ^IAVLNode (second stack)]
+              (if (and n2 (larger? k (.getKey n2)))
+                (recur (next stack))
+                (if-let [next-node (drop-seek (if ascending? (.getRight n1) (.getLeft n1)) ascending? k)]
+                  (recur (seq-push next-node (next stack) ascending?))
+                  (recur (next stack)))))))))))
+
+(defprotocol Seek
+  (seek [this k]))
+
 (deftype AVLMapSeq [^IPersistentMap _meta
                     ^IPersistentStack stack
                     ^boolean ascending?
@@ -1239,6 +1275,14 @@
 
   (next [this]
     (.seq (.more this)))
+
+  Seek
+  (seek [this k]
+    (let [next-stack (seq-seek stack ascending? k)]
+      (if (nil? next-stack)
+        ()
+        ;; TODO fix cnt
+        (AVLMapSeq. nil next-stack ascending? -1 -1 -1))))
 
   clojure.lang.Counted
   (count [this]
