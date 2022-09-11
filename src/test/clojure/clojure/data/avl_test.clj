@@ -297,7 +297,7 @@
     (is (= (reduce conj [] (avl/sorted-set 1)) [1]))
     (is (= (reduce conj [] (avl/sorted-set 1 2 3 4 5 6)) [1 2 3 4 5 6]))))
 
-(deftest seek-for-seq
+(deftest map-seek-for-seq
   (let [data (->> (range 1000)
                   (map #(* % 100))
                   (map #(vector % %)))
@@ -313,7 +313,7 @@
           (let [s (avl/seek s seek)
                 next-value (next100 seek)]
             (is (= next-value (-> s first key)))
-            (is (= (+ next-value 100) (-> s next first key)))
+            (is (= (+ next-value 100) (-> s second key)))
             (recur s (rest seeks))))))
     (testing "seek for rseq"
       (loop [s (rseq sm) seeks (reverse seeks)]
@@ -321,5 +321,31 @@
           (let [s (avl/seek s seek)
                 next-value (before100 seek)]
             (is (= next-value (-> s first key)))
-            (is (= (- next-value 100) (-> s next first key)))
+            (is (= (- next-value 100) (-> s second key)))
+            (recur s (rest seeks))))))))
+
+(deftest set-seek-for-seq
+  (let [data (->> (range 1000)
+                  (map #(* % 100)))
+        seeks [111 444 9999 44444]
+        next100 #(if (= (mod % 100) 0) %
+                     (+ (* (quot % 100) 100) 100))
+        before100 #(if (= (mod % 100) 0) %
+                       (* (quot % 100) 100))
+        sm (into (avl/sorted-set) data)]
+    (testing "set seek for seq "
+      (loop [s (seq sm) seeks seeks]
+        (when-let [seek (first seeks)]
+          (let [s (avl/seek s seek)
+                next-value (next100 seek)]
+            (is (= next-value (first s)))
+            (is (= (+ next-value 100) (second s)))
+            (recur s (rest seeks))))))
+    (testing "seek for rseq"
+      (loop [s (rseq sm) seeks (reverse seeks)]
+        (when-let [seek (first seeks)]
+          (let [s (avl/seek s seek)
+                next-value (before100 seek)]
+            (is (= next-value (first s)))
+            (is (= (- next-value 100) (second s)))
             (recur s (rest seeks))))))))
