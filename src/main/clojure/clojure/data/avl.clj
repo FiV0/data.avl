@@ -1200,6 +1200,7 @@
               init
               (avl-set-reduce (.getRight node) f init))))))))
 
+;; FIXME use AVLMap supplied comparator
 (defn larger-fn [ascending?]
   (if ascending?
     #(= (compare %1 %2) 1)
@@ -1679,6 +1680,139 @@
         (set! cnt  (unchecked-dec-int cnt)))
       this)))
 
+(deftype AVLSetSeq [^IPersistentMap _meta
+                    ^IPersistentStack stack
+                    ^boolean ascending?
+                    ^int cnt
+                    ^:unsynchronized-mutable ^int _hash
+                    ^:unsynchronized-mutable ^int _hasheq]
+  :no-print true
+
+  Object
+  (toString [this]
+    (RT/printString this))
+
+  (hashCode [this]
+    (caching-hash this hash-seq _hash))
+
+  clojure.lang.IHashEq
+  (hasheq [this]
+    (caching-hash this hasheq-seq _hasheq))
+
+  clojure.lang.Seqable
+  (seq [this]
+    this)
+
+  clojure.lang.Sequential
+  clojure.lang.ISeq
+  (first [this]
+    (key (peek stack)))
+
+  (more [this]
+    (let [node ^IAVLNode (first stack)
+          next-stack (seq-push (if ascending? (.getRight node) (.getLeft node))
+                               (next stack)
+                               ascending?)]
+      (if (nil? next-stack)
+        ()
+        (AVLSetSeq. nil next-stack ascending? (unchecked-dec-int cnt) -1 -1))))
+
+  (next [this]
+    (.seq (.more this)))
+
+  Seek
+  (seek [this k]
+    (let [next-stack (seq-seek stack ascending? k)]
+      (if (nil? next-stack)
+        ()
+        ;; TODO fix cnt
+        (AVLSetSeq. nil next-stack ascending? -1 -1 -1))))
+
+  clojure.lang.Counted
+  (count [this]
+    (if (neg? cnt)
+      (unchecked-inc-int (count (next this)))
+      cnt))
+
+  clojure.lang.IPersistentCollection
+  (cons [this x]
+    (cons x this))
+
+  (equiv [this that]
+    (equiv-sequential this that))
+
+  (empty [this]
+    (with-meta () _meta))
+
+  clojure.lang.IMeta
+  (meta [this]
+    _meta)
+
+  clojure.lang.IObj
+  (withMeta [this meta]
+    (AVLSetSeq. meta stack ascending? cnt _hash _hasheq))
+
+  java.io.Serializable
+
+  java.util.List
+  (toArray [this]
+    (RT/seqToArray (seq this)))
+
+  (^objects toArray [this ^objects arr]
+   (RT/seqToPassedArray (seq this) arr))
+
+  (containsAll [this c]
+    (every? #(.contains this %) (iterator-seq (.iterator c))))
+
+  (size [this]
+    (count this))
+
+  (isEmpty [this]
+    (zero? cnt))
+
+  (contains [this x]
+    (or (some #(Util/equiv % x) this) false))
+
+  (iterator [this]
+    (SeqIterator. this))
+
+  (subList [this from to]
+    (.subList (Collections/unmodifiableList (ArrayList. this)) from to))
+
+  (indexOf [this x]
+    (loop [i (int 0) s (seq this)]
+      (if s
+        (if (Util/equiv (first s) x)
+          i
+          (recur (unchecked-inc-int i) (next s)))
+        (int -1))))
+
+  (lastIndexOf [this x]
+    (.lastIndexOf (ArrayList. this) x))
+
+  (listIterator [this]
+    (.listIterator (Collections/unmodifiableList (ArrayList. this))))
+
+  (listIterator [this i]
+    (.listIterator (Collections/unmodifiableList (ArrayList. this)) i))
+
+  (get [this i]
+    (RT/nth this i))
+
+  (add             [this x]      (throw-unsupported))
+  (^boolean remove [this x]      (throw-unsupported))
+  (addAll          [this c]      (throw-unsupported))
+  (clear           [this]        (throw-unsupported))
+  (retainAll       [this c]      (throw-unsupported))
+  (removeAll       [this c]      (throw-unsupported))
+  (set             [this i e]    (throw-unsupported))
+  (remove          [this ^int i] (throw-unsupported))
+  (add             [this i e]    (throw-unsupported)))
+
+(defn ^:private create-set-seq [node ascending? cnt]
+  (AVLSetSeq. nil (seq-push node nil ascending?) ascending? cnt -1 -1))
+
+
 (declare ->AVLTransientSet)
 
 (deftype AVLSet [^IPersistentMap _meta
@@ -1750,11 +1884,18 @@
 
   clojure.lang.Seqable
   (seq [this]
-    (keys avl-map))
+    (when (pos? (count avl-map))
+      (create-set-seq (.getTree avl-map) true (count avl-map))))
+
+  clojure.lang.Reversible
+  (rseq [this]
+    (when (pos? (count avl-map))
+      (create-set-seq (.getTree avl-map) false (count avl-map))))
 
   clojure.lang.Sorted
+  ;; FIXME make this work for AVLSetSeq
   (seq [this ascending?]
-     (RT/keys (.seq avl-map ascending?)))
+    (RT/keys (.seq avl-map ascending?)))
 
   (seqFrom [this k ascending?]
     (RT/keys (.seqFrom avl-map k ascending?)))
@@ -1765,9 +1906,6 @@
   (comparator [this]
     (.comparator avl-map))
 
-  clojure.lang.Reversible
-  (rseq [this]
-    (map key (rseq avl-map)))
 
   clojure.lang.ILookup
   (valAt [this v]
