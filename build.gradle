@@ -1,0 +1,122 @@
+plugins {
+    id 'dev.clojurephant.clojure' version '0.8.0-beta.7'
+    id 'maven-publish'
+}
+
+group = 'org.clojure'
+version = '0.0.18-SNAPSHOT'
+description = 'Persistent sorted maps and sets with log-time rank queries'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'Clojars'
+        url = 'https://clojars.org/repo'
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    withSourcesJar()
+    withJavadocJar()
+}
+
+dependencies {
+    implementation 'org.clojure:clojure:1.11.1'
+
+    // Test dependencies
+    testImplementation 'org.clojure:test.check:1.1.1'
+    testImplementation 'collection-check:collection-check:0.1.7'
+}
+
+// Configure source sets to match the project structure
+sourceSets {
+    main {
+        clojure {
+            srcDirs = ['src/main/clojure', 'src/main/cljs']
+        }
+    }
+    test {
+        clojure {
+            srcDirs = ['src/test/clojure', 'src/test_local/cljc']
+        }
+    }
+}
+
+// Configure test task
+tasks.named('test') {
+    systemProperty 'org.clojure.data.avl.test.large-tree-size', '100000'
+    systemProperty 'org.clojure.data.avl.test.medium-tree-size', '100000'
+    systemProperty 'org.clojure.data.avl.test.small-tree-size', '300'
+}
+
+// Maven publishing configuration
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = project.group
+            artifactId = 'data.avl'
+            version = project.version
+
+            from components.java
+
+            pom {
+                name = 'data.avl'
+                description = project.description
+                url = 'https://github.com/clojure/data.avl'
+
+                licenses {
+                    license {
+                        name = 'Eclipse Public License'
+                        url = 'http://www.eclipse.org/legal/epl-v10.html'
+                    }
+                }
+
+                developers {
+                    developer {
+                        name = 'Clojure Team'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/clojure/data.avl.git'
+                    developerConnection = 'scm:git:ssh://github.com/clojure/data.avl.git'
+                    url = 'https://github.com/clojure/data.avl'
+                }
+            }
+        }
+    }
+}
+
+// JitPack-specific tasks
+task install(dependsOn: publishToMavenLocal) {
+    description = 'Install artifacts to local Maven repository (for JitPack)'
+    group = 'publishing'
+}
+
+// Task to run tests with different Clojure versions
+task testAll {
+    description = 'Run tests with multiple Clojure versions'
+    group = 'verification'
+}
+
+// Helper tasks for different Clojure versions
+['1.5.1', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.1'].each { clojureVersion ->
+    def taskName = "testClojure${clojureVersion.replace('.', '_')}"
+    tasks.register(taskName, Test) {
+        description = "Run tests with Clojure ${clojureVersion}"
+        group = 'verification'
+
+        classpath = sourceSets.test.runtimeClasspath.filter { !it.name.contains('clojure') }
+        classpath += files(configurations.detachedConfiguration(
+            dependencies.create("org.clojure:clojure:${clojureVersion}")
+        ))
+
+        systemProperty 'org.clojure.data.avl.test.large-tree-size', '100000'
+        systemProperty 'org.clojure.data.avl.test.medium-tree-size', '100000'
+        systemProperty 'org.clojure.data.avl.test.small-tree-size', '300'
+    }
+
+    testAll.dependsOn(taskName)
+}

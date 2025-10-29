@@ -1,0 +1,11 @@
+# JitPack configuration
+jdk:
+  - openjdk11
+
+# Build command that JitPack will run
+install:
+  - ./gradlew clean build publishToMavenLocal -x test
+
+# Environment variables
+env:
+  GRADLE_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m"
