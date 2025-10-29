@@ -12,5 +12,4 @@
 .\#*
 /out
 /.nrepl-port
-.gradle/
 build
