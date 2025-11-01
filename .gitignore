@@ -15,3 +15,5 @@
 /.nrepl-port
 build
 .cpcache/
+.clj-kondo
+.lsp
