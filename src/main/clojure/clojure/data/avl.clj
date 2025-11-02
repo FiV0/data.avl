@@ -1234,8 +1234,21 @@
                   (recur (seq-push next-node (next stack) ascending?))
                   (recur (next stack)))))))))))
 
-(defprotocol Seek
-  (seek [this k]))
+
+
+(gen-interface
+ :name clojure.data.avl.IAVLSeq
+ :extends [clojure.lang.IHashEq
+           clojure.lang.Seqable
+           clojure.lang.Sequential
+           clojure.lang.ISeq
+           clojure.lang.Counted
+           clojure.lang.IPersistentCollection
+           clojure.lang.IMeta
+           clojure.lang.IObj
+           java.io.Serializable
+           java.util.List]
+ :methods [[seek [Object] clojure.data.avl.IAVLSeq]])
 
 (deftype AVLMapSeq [^IPersistentMap _meta
                     ^IPersistentStack stack
@@ -1252,16 +1265,17 @@
   (hashCode [this]
     (caching-hash this hash-seq _hash))
 
-  clojure.lang.IHashEq
+  clojure.data.avl.IAVLSeq
+  ;; clojure.lang.IHashEq
   (hasheq [this]
     (caching-hash this hasheq-seq _hasheq))
 
-  clojure.lang.Seqable
+  ;; clojure.lang.Seqable
   (seq [this]
     this)
 
-  clojure.lang.Sequential
-  clojure.lang.ISeq
+  ;; clojure.lang.Sequential
+  ;; clojure.lang.ISeq
   (first [this]
     (peek stack))
 
@@ -1277,7 +1291,7 @@
   (next [this]
     (.seq (.more this)))
 
-  Seek
+  ;; Seek
   (seek [this k]
     (let [next-stack (seq-seek stack ascending? k)]
       (if (nil? next-stack)
@@ -1285,13 +1299,13 @@
         ;; TODO fix cnt
         (AVLMapSeq. nil next-stack ascending? -1 -1 -1))))
 
-  clojure.lang.Counted
+  ;; clojure.lang.Counted
   (count [this]
     (if (neg? cnt)
       (unchecked-inc-int (count (next this)))
       cnt))
 
-  clojure.lang.IPersistentCollection
+  ;; clojure.lang.IPersistentCollection
   (cons [this x]
     (cons x this))
 
@@ -1301,22 +1315,22 @@
   (empty [this]
     (with-meta () _meta))
 
-  clojure.lang.IMeta
+  ;; clojure.lang.IMeta
   (meta [this]
     _meta)
 
-  clojure.lang.IObj
+  ;; clojure.lang.IObj
   (withMeta [this meta]
     (AVLMapSeq. meta stack ascending? cnt _hash _hasheq))
 
-  java.io.Serializable
+  ;; java.io.Serializable
 
-  java.util.List
+  ;; java.util.List
   (toArray [this]
     (RT/seqToArray (seq this)))
 
   (^objects toArray [this ^objects arr]
-    (RT/seqToPassedArray (seq this) arr))
+   (RT/seqToPassedArray (seq this) arr))
 
   (containsAll [this c]
     (every? #(.contains this %) (iterator-seq (.iterator c))))
@@ -1365,6 +1379,7 @@
   (set             [this i e]    (throw-unsupported))
   (remove          [this ^int i] (throw-unsupported))
   (add             [this i e]    (throw-unsupported)))
+
 
 (defn ^:private create-seq [node ascending? cnt]
   (AVLMapSeq. nil (seq-push node nil ascending?) ascending? cnt -1 -1))
@@ -1695,16 +1710,17 @@
   (hashCode [this]
     (caching-hash this hash-seq _hash))
 
-  clojure.lang.IHashEq
+  clojure.data.avl.IAVLSeq
+  ;; clojure.lang.IHashEq
   (hasheq [this]
     (caching-hash this hasheq-seq _hasheq))
 
-  clojure.lang.Seqable
+  ;; clojure.lang.Seqable
   (seq [this]
     this)
 
-  clojure.lang.Sequential
-  clojure.lang.ISeq
+  ;; clojure.lang.Sequential
+  ;; clojure.lang.ISeq
   (first [this]
     (key (peek stack)))
 
@@ -1720,7 +1736,7 @@
   (next [this]
     (.seq (.more this)))
 
-  Seek
+  ;; Seek
   (seek [this k]
     (let [next-stack (seq-seek stack ascending? k)]
       (if (nil? next-stack)
@@ -1728,13 +1744,13 @@
         ;; TODO fix cnt
         (AVLSetSeq. nil next-stack ascending? -1 -1 -1))))
 
-  clojure.lang.Counted
+  ;; clojure.lang.Counted
   (count [this]
     (if (neg? cnt)
       (unchecked-inc-int (count (next this)))
       cnt))
 
-  clojure.lang.IPersistentCollection
+  ;; clojure.lang.IPersistentCollection
   (cons [this x]
     (cons x this))
 
@@ -1744,17 +1760,17 @@
   (empty [this]
     (with-meta () _meta))
 
-  clojure.lang.IMeta
+  ;; clojure.lang.IMeta
   (meta [this]
     _meta)
 
-  clojure.lang.IObj
+  ;; clojure.lang.IObj
   (withMeta [this meta]
     (AVLSetSeq. meta stack ascending? cnt _hash _hasheq))
 
-  java.io.Serializable
+  ;; java.io.Serializable
 
-  java.util.List
+  ;; java.util.List
   (toArray [this]
     (RT/seqToArray (seq this)))
 
@@ -1812,6 +1828,10 @@
 (defn ^:private create-set-seq [node ascending? cnt]
   (AVLSetSeq. nil (seq-push node nil ascending?) ascending? cnt -1 -1))
 
+(import (clojure.data.avl IAVLSeq))
+
+(defn seek [^IAVLSeq avl-seq k]
+  (.seek avl-seq k))
 
 (declare ->AVLTransientSet)
 
