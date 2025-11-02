@@ -30,6 +30,25 @@ dependencies {
     testImplementation 'collection-check:collection-check:0.1.7'
 }
 
+clojure.builds {
+    main {
+        // reset Clojure classpath to only include dependencies
+        classpath.from = sourceSets.main.compileClasspath
+
+        // or if you also need the sources on the classpath
+        // classpath.from = sourceSets.main.compileClasspath + tasks.named(sourceSets.main.processResourcesTaskName)
+
+        // makes sure you AOT at least the namespace that produces the class(es) Java uses
+        aotAll()
+    }
+}
+
+tasks.named('compileJava') {
+    // add clojure's compiled output onto the Java compiler output
+    classpath += files(sourceSets.main.clojure.classesDirectory)
+}
+
+
 // Configure source sets to match the project structure
 sourceSets {
     main {
