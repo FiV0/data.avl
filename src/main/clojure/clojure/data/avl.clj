@@ -28,7 +28,8 @@
                          IPersistentMap IPersistentSet IPersistentStack
                          Box MapEntry SeqIterator)
            (java.util Comparator Collections ArrayList)
-           (java.util.concurrent.atomic AtomicReference)))
+           (java.util.concurrent.atomic AtomicReference))
+  (:gen-class))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
