@@ -349,3 +349,20 @@
             (is (= next-value (first s)))
             (is (= (- next-value 100) (second s)))
             (recur s (rest seeks))))))))
+
+(deftest seek-on-empty-seq
+  (let [sm (avl/sorted-map 1 2 3 4)
+        s (seq sm)]
+    (is (= clojure.data.avl.AVLMapSeq (type s)))
+    (is (= [1 2] (first s)))
+    (let [seeked (avl/seek s 10)]
+      (is (= clojure.data.avl.AVLMapSeq (type s)))
+      (is (= nil (first seeked)))))
+
+  (let [sm (avl/sorted-set 1 2 3 4)
+        s (seq sm)]
+    (is (= clojure.data.avl.AVLSetSeq (type s)))
+    (is (= 1 (first s)))
+    (let [seeked (avl/seek s 10)]
+      (is (= clojure.data.avl.AVLSetSeq (type s)))
+      (is (= nil (first seeked))))))

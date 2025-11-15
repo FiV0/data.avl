@@ -1294,11 +1294,8 @@
 
   ;; Seek
   (seek [this k]
-    (let [next-stack (seq-seek stack ascending? k)]
-      (if (nil? next-stack)
-        ()
-        ;; TODO fix cnt
-        (AVLMapSeq. nil next-stack ascending? -1 -1 -1))))
+    ;; TODO fix cnt
+    (AVLMapSeq. nil (seq-seek stack ascending? k) ascending? -1 -1 -1))
 
   ;; clojure.lang.Counted
   (count [this]
@@ -1723,7 +1720,7 @@
   ;; clojure.lang.Sequential
   ;; clojure.lang.ISeq
   (first [this]
-    (key (peek stack)))
+    (some-> (peek stack) key))
 
   (more [this]
     (let [node ^IAVLNode (first stack)
@@ -1739,11 +1736,8 @@
 
   ;; Seek
   (seek [this k]
-    (let [next-stack (seq-seek stack ascending? k)]
-      (if (nil? next-stack)
-        ()
-        ;; TODO fix cnt
-        (AVLSetSeq. nil next-stack ascending? -1 -1 -1))))
+    ;; TODO fix cnt
+    (AVLSetSeq. nil (seq-seek stack ascending? k) ascending? -1 -1 -1))
 
   ;; clojure.lang.Counted
   (count [this]
