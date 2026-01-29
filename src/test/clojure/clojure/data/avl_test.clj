@@ -357,7 +357,8 @@
     (is (= [1 2] (first s)))
     (let [seeked (avl/seek s 10)]
       (is (= clojure.data.avl.AVLMapSeq (type s)))
-      (is (= nil (first seeked)))))
+      (is (= nil (first seeked)))
+      (is (true? (.isEmpty seeked)))))
 
   (let [sm (avl/sorted-set 1 2 3 4)
         s (seq sm)]
@@ -365,4 +366,5 @@
     (is (= 1 (first s)))
     (let [seeked (avl/seek s 10)]
       (is (= clojure.data.avl.AVLSetSeq (type s)))
-      (is (= nil (first seeked))))))
+      (is (= nil (first seeked)))
+      (is (true? (.isEmpty seeked))))))
