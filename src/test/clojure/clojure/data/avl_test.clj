@@ -368,3 +368,101 @@
       (is (= clojure.data.avl.AVLSetSeq (type s)))
       (is (= nil (first seeked)))
       (is (true? (.isEmpty seeked))))))
+
+(def int-before-string-comparator
+  (reify java.util.Comparator
+    (compare [_ a b]
+      (cond
+        (and (number? a) (number? b)) (compare a b)
+        (and (string? a) (string? b)) (compare a b)
+        (number? a) -1
+        :else 1))))
+
+(deftest custom-comparator-map-seek
+  (testing "seek works with custom comparator that orders ints before strings"
+    (let [data [[1 "one"] [2 "two"] [5 "five"] [10 "ten"]
+                ["a" "alpha"] ["b" "beta"] ["z" "zeta"]]
+          sm (into (avl/sorted-map-by int-before-string-comparator) data)]
+
+      (testing "seek in ascending seq"
+        (let [s (seq sm)]
+          (let [seeked (avl/seek s 3)]
+            (is (= 5 (-> seeked first key)))
+            (is (= "five" (-> seeked first val))))
+
+          (let [seeked (avl/seek s 5)]
+            (is (= 5 (-> seeked first key))))
+
+          (let [seeked (avl/seek s 100)]
+            (is (= "a" (-> seeked first key))))
+
+          (let [seeked (avl/seek s "c")]
+            (is (= "z" (-> seeked first key))))
+
+          (let [seeked (avl/seek s "zzz")]
+            (is (nil? (first seeked))))))
+
+      (testing "seek in descending rseq"
+        (let [s (rseq sm)]
+          (let [seeked (avl/seek s "c")]
+            (is (= "b" (-> seeked first key))))
+
+          (let [seeked (avl/seek s 7)]
+            (is (= 5 (-> seeked first key))))
+
+          (let [seeked (avl/seek s 0)]
+            (is (nil? (first seeked)))))))))
+
+(deftest custom-comparator-set-seek
+  (testing "seek works with custom comparator set that orders ints before strings"
+    (let [data [1 2 5 10 "a" "b" "z"]
+          ss (into (avl/sorted-set-by int-before-string-comparator) data)]
+
+      (testing "seek in ascending set seq"
+        (let [s (seq ss)]
+          (let [seeked (avl/seek s 3)]
+            (is (= 5 (first seeked))))
+
+          (let [seeked (avl/seek s 5)]
+            (is (= 5 (first seeked))))
+
+          (let [seeked (avl/seek s 100)]
+            (is (= "a" (first seeked))))
+
+          (let [seeked (avl/seek s "c")]
+            (is (= "z" (first seeked))))
+
+          (let [seeked (avl/seek s "zzz")]
+            (is (nil? (first seeked))))))
+
+      (testing "seek in descending set rseq"
+        (let [s (rseq ss)]
+          (let [seeked (avl/seek s "c")]
+            (is (= "b" (first seeked))))
+
+          (let [seeked (avl/seek s 7)]
+            (is (= 5 (first seeked))))
+
+          (let [seeked (avl/seek s 0)]
+            (is (nil? (first seeked)))))))))
+
+(deftest custom-comparator-edge-cases
+  (testing "edge cases with custom comparator"
+    (let [comp int-before-string-comparator]
+
+      (testing "seek on empty collection with custom comparator"
+        (let [sm (avl/sorted-map-by comp)
+              s (seq sm)]
+          (is (nil? s))))
+
+      (testing "seek on single element with custom comparator"
+        (let [sm (avl/sorted-map-by comp 1 "one")
+              s (seq sm)]
+          (is (= 1 (-> (avl/seek s 0) first key)))
+          (is (= 1 (-> (avl/seek s 1) first key)))
+          (is (nil? (-> (avl/seek s 2) first)))))
+
+      (testing "seek when all elements are same type"
+        (let [sm (into (avl/sorted-map-by comp) [[1 "a"] [2 "b"] [3 "c"]])
+              s (seq sm)]
+          (is (= 2 (-> (avl/seek s 1.5) first key))))))))

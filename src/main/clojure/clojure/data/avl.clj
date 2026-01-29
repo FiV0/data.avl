@@ -1201,28 +1201,27 @@
               init
               (avl-set-reduce (.getRight node) f init))))))))
 
-;; FIXME use AVLMap supplied comparator
-(defn larger-fn [ascending?]
+(defn larger-fn [^Comparator comp ascending?]
   (if ascending?
-    #(= (compare %1 %2) 1)
-    #(= (compare %2 %1) 1)))
+    #(= (.compare comp %1 %2) 1)
+    #(= (.compare comp %2 %1) 1)))
 
-(defn smaller-equal-fn [ascending?]
+(defn smaller-equal-fn [^Comparator comp ascending?]
   (if ascending?
-    #(<= (compare %1 %2) 0)
-    #(<= (compare %2 %1) 0)))
+    #(<= (.compare comp %1 %2) 0)
+    #(<= (.compare comp %2 %1) 0)))
 
-(defn- drop-seek [^IAVLNode node ascending? k]
-  (let [larger? (larger-fn ascending?)]
+(defn- drop-seek [^Comparator comp ^IAVLNode node ascending? k]
+  (let [larger? (larger-fn comp ascending?)]
     (loop [node node]
       (when node
         (if  (larger? k (.getKey node))
           (recur (if ascending? (.getRight node) (.getLeft node)))
           node)))))
 
-(defn- seq-seek [stack ascending? k]
-  (let [smaller-eq? (smaller-equal-fn ascending?)
-        larger? (larger-fn ascending?)]
+(defn- seq-seek [^Comparator comp stack ascending? k]
+  (let [smaller-eq? (smaller-equal-fn comp ascending?)
+        larger? (larger-fn comp ascending?)]
     (loop [stack stack]
       (when stack
         (let [n1 ^IAVLNode (first stack)]
@@ -1231,7 +1230,7 @@
             (let [n2 ^IAVLNode (second stack)]
               (if (and n2 (larger? k (.getKey n2)))
                 (recur (next stack))
-                (if-let [next-node (drop-seek (if ascending? (.getRight n1) (.getLeft n1)) ascending? k)]
+                (if-let [next-node (drop-seek comp (if ascending? (.getRight n1) (.getLeft n1)) ascending? k)]
                   (recur (seq-push next-node (next stack) ascending?))
                   (recur (next stack)))))))))))
 
@@ -1252,6 +1251,7 @@
  :methods [[seek [Object] clojure.data.avl.IAVLSeq]])
 
 (deftype AVLMapSeq [^IPersistentMap _meta
+                    ^Comparator comp
                     ^IPersistentStack stack
                     ^boolean ascending?
                     ^int cnt
@@ -1287,7 +1287,7 @@
                                ascending?)]
       (if (nil? next-stack)
         ()
-        (AVLMapSeq. nil next-stack ascending? (unchecked-dec-int cnt) -1 -1))))
+        (AVLMapSeq. nil comp next-stack ascending? (unchecked-dec-int cnt) -1 -1))))
 
   (next [this]
     (.seq (.more this)))
@@ -1295,7 +1295,7 @@
   ;; Seek
   (seek [this k]
     ;; TODO fix cnt
-    (AVLMapSeq. nil (seq-seek stack ascending? k) ascending? -1 -1 -1))
+    (AVLMapSeq. nil comp (seq-seek comp stack ascending? k) ascending? -1 -1 -1))
 
   ;; clojure.lang.Counted
   (count [this]
@@ -1319,7 +1319,7 @@
 
   ;; clojure.lang.IObj
   (withMeta [this meta]
-    (AVLMapSeq. meta stack ascending? cnt _hash _hasheq))
+    (AVLMapSeq. meta comp stack ascending? cnt _hash _hasheq))
 
   ;; java.io.Serializable
 
@@ -1379,8 +1379,8 @@
   (add             [this i e]    (throw-unsupported)))
 
 
-(defn ^:private create-seq [node ascending? cnt]
-  (AVLMapSeq. nil (seq-push node nil ascending?) ascending? cnt -1 -1))
+(defn ^:private create-seq [^Comparator comp node ascending? cnt]
+  (AVLMapSeq. nil comp (seq-push node nil ascending?) ascending? cnt -1 -1))
 
 (declare ->AVLTransientMap)
 
@@ -1469,12 +1469,12 @@
   clojure.lang.Seqable
   (seq [this]
     (if (pos? cnt)
-      (create-seq tree true cnt)))
+      (create-seq comp tree true cnt)))
 
   clojure.lang.Reversible
   (rseq [this]
     (if (pos? cnt)
-      (create-seq tree false cnt)))
+      (create-seq comp tree false cnt)))
 
   clojure.lang.ILookup
   (valAt [this k]
@@ -1527,7 +1527,7 @@
   clojure.lang.Sorted
   (seq [this ascending?]
     (if (pos? cnt)
-      (create-seq tree ascending? cnt)))
+      (create-seq comp tree ascending? cnt)))
 
   (seqFrom [this k ascending?]
     (if (pos? cnt)
@@ -1535,7 +1535,7 @@
         (if-not (nil? t)
           (let [c (.compare comp k (.getKey t))]
             (cond
-              (zero? c)  (AVLMapSeq. nil (conj stack t) ascending? -1 -1 -1)
+              (zero? c)  (AVLMapSeq. nil comp (conj stack t) ascending? -1 -1 -1)
               ascending? (if (neg? c)
                            (recur (conj stack t) (.getLeft t))
                            (recur stack          (.getRight t)))
@@ -1543,7 +1543,7 @@
                            (recur (conj stack t) (.getRight t))
                            (recur stack          (.getLeft t)))))
           (if-not (nil? stack)
-            (AVLMapSeq. nil stack ascending? -1 -1 -1))))))
+            (AVLMapSeq. nil comp stack ascending? -1 -1 -1))))))
 
   (entryKey [this entry]
     (key entry))
@@ -1694,6 +1694,7 @@
       this)))
 
 (deftype AVLSetSeq [^IPersistentMap _meta
+                    ^Comparator comp
                     ^IPersistentStack stack
                     ^boolean ascending?
                     ^int cnt
@@ -1729,7 +1730,7 @@
                                ascending?)]
       (if (nil? next-stack)
         ()
-        (AVLSetSeq. nil next-stack ascending? (unchecked-dec-int cnt) -1 -1))))
+        (AVLSetSeq. nil comp next-stack ascending? (unchecked-dec-int cnt) -1 -1))))
 
   (next [this]
     (.seq (.more this)))
@@ -1737,7 +1738,7 @@
   ;; Seek
   (seek [this k]
     ;; TODO fix cnt
-    (AVLSetSeq. nil (seq-seek stack ascending? k) ascending? -1 -1 -1))
+    (AVLSetSeq. nil comp (seq-seek comp stack ascending? k) ascending? -1 -1 -1))
 
   ;; clojure.lang.Counted
   (count [this]
@@ -1761,7 +1762,7 @@
 
   ;; clojure.lang.IObj
   (withMeta [this meta]
-    (AVLSetSeq. meta stack ascending? cnt _hash _hasheq))
+    (AVLSetSeq. meta comp stack ascending? cnt _hash _hasheq))
 
   ;; java.io.Serializable
 
@@ -1820,8 +1821,8 @@
   (remove          [this ^int i] (throw-unsupported))
   (add             [this i e]    (throw-unsupported)))
 
-(defn ^:private create-set-seq [node ascending? cnt]
-  (AVLSetSeq. nil (seq-push node nil ascending?) ascending? cnt -1 -1))
+(defn ^:private create-set-seq [^Comparator comp node ascending? cnt]
+  (AVLSetSeq. nil comp (seq-push node nil ascending?) ascending? cnt -1 -1))
 
 (import (clojure.data.avl IAVLSeq))
 
@@ -1900,12 +1901,12 @@
   clojure.lang.Seqable
   (seq [this]
     (when (pos? (count avl-map))
-      (create-set-seq (.getTree avl-map) true (count avl-map))))
+      (create-set-seq (.comparator avl-map) (.getTree avl-map) true (count avl-map))))
 
   clojure.lang.Reversible
   (rseq [this]
     (when (pos? (count avl-map))
-      (create-set-seq (.getTree avl-map) false (count avl-map))))
+      (create-set-seq (.comparator avl-map) (.getTree avl-map) false (count avl-map))))
 
   clojure.lang.Sorted
   ;; FIXME make this work for AVLSetSeq
